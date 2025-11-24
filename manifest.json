@@ -1,11 +1,9 @@
 {
-	"id": "sample-plugin",
-	"name": "Sample Plugin",
-	"version": "1.0.0",
-	"minAppVersion": "0.15.0",
-	"description": "Demonstrates some of the capabilities of the Obsidian API.",
-	"author": "Obsidian",
-	"authorUrl": "https://obsidian.md",
-	"fundingUrl": "https://obsidian.md/pricing",
-	"isDesktopOnly": false
+  "id": "obsidian-cloudflare-plugin",
+  "name": "Obsidian cloudflare Plugin",
+  "version": "1.0.0",
+  "minAppVersion": "0.15.0",
+  "description": "This plugin uploads images from your clipboard to your own cloudflare bucket and embeds uploaded image to your note",
+  "author": "youngseok.yoon",
+  "isDesktopOnly": true
 }

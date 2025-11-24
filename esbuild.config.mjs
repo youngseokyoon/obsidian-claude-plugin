@@ -1,6 +1,12 @@
-import esbuild from "esbuild";
+import * as esbuild from "esbuild";
 import process from "process";
 import builtins from "builtin-modules";
+import { createRequire } from "node:module";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const require = createRequire(import.meta.url);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const banner =
 `/*
@@ -11,11 +17,34 @@ if you want to view the source, please visit the github repository of this plugi
 
 const prod = (process.argv[2] === "production");
 
+// Plugin to resolve 'buffer/', 'url/', 'querystring/' to their respective modules
+const trailingSlashResolvePlugin = {
+    name: 'trailing-slash-resolve',
+    setup(build) {
+        // Match any of: buffer/, url/, querystring/
+        build.onResolve({ filter: /^(buffer|url|querystring)\/$/ }, args => {
+            // Extract module name (remove trailing slash)
+            const moduleName = args.path.replace(/\/$/, '');
+
+            // Map module names to their entry points
+            const entryPoints = {
+                'buffer': 'index.js',
+                'url': 'url.js',
+                'querystring': 'index.js'
+            };
+
+            // Resolve to the actual module path
+            const modulePath = path.join(__dirname, 'node_modules', moduleName, entryPoints[moduleName]);
+            return { path: modulePath, external: false };
+        });
+    }
+};
+
 const context = await esbuild.context({
 	banner: {
 		js: banner,
 	},
-	entryPoints: ["main.ts"],
+	entryPoints: ["src/publish.ts"],
 	bundle: true,
 	external: [
 		"obsidian",
@@ -28,17 +57,15 @@ const context = await esbuild.context({
 		"@codemirror/search",
 		"@codemirror/state",
 		"@codemirror/view",
-		"@lezer/common",
-		"@lezer/highlight",
-		"@lezer/lr",
-		...builtins],
+        // Include all builtins except buffer, url, querystring which need to be bundled
+        ...builtins.filter(x => !['buffer', 'url', 'querystring'].includes(x))],
 	format: "cjs",
 	target: "es2018",
 	logLevel: "info",
 	sourcemap: prod ? false : "inline",
 	treeShaking: true,
 	outfile: "main.js",
-	minify: prod,
+    plugins: [trailingSlashResolvePlugin]
 });
 
 if (prod) {

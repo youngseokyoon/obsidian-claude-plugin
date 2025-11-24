@@ -16,6 +16,7 @@ export interface PublishSettings {
     replaceOriginalDoc: boolean;
     ignoreProperties: boolean;
     autoUploadOnPaste: boolean;
+    keepLocalFile: boolean;
     r2Setting: R2Setting;
 }
 
@@ -24,6 +25,7 @@ const DEFAULT_SETTINGS: PublishSettings = {
     replaceOriginalDoc: false,
     ignoreProperties: true,
     autoUploadOnPaste: false,
+    keepLocalFile: true,
     r2Setting: {
         accessKeyId: "",
         secretAccessKey: "",

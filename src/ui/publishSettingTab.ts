@@ -166,9 +166,18 @@ export default class PublishSettingTab extends PluginSettingTab {
     }
 
     /**
-     * Creates additional independent settings (alt text, update document, ignore properties)
+     * Creates additional independent settings (keep local file, alt text, update document, ignore properties)
      */
     private createAdditionalSettings(container: HTMLElement): void {
+        new Setting(container)
+            .setName("Keep local copy of pasted images")
+            .setDesc("Save pasted images to your vault's attachment folder.")
+            .addToggle(toggle =>
+                toggle
+                    .setValue(this.plugin.settings.keepLocalFile)
+                    .onChange(value => this.plugin.settings.keepLocalFile = value)
+            );
+
         new Setting(container)
             .setName("Use image name as Alt Text")
             .setDesc("Whether to use image name as Alt Text with '-' and '_' replaced with space.")

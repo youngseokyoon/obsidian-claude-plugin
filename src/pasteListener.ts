@@ -1,4 +1,4 @@
-import { App, Notice, Editor } from "obsidian";
+import { App, Notice, Editor, normalizePath } from "obsidian";
 import ImageUploader from "./uploader/imageUploader";
 import { PublishSettings } from "./publish";
 
@@ -38,31 +38,53 @@ export default class PasteListener {
                 if (activeFile) {
                     const frontmatter = this.app.metadataCache.getFileCache(activeFile)?.frontmatter;
                     if (frontmatter && frontmatter["imageNameKey"]) {
-                        filenameBase = `${frontmatter["imageNameKey"]}-`;
+                        filenameBase = `${frontmatter["imageNameKey"]}/`;
                     }
                 }
 
                 const randomString = this.generateRandomString(12);
                 const filename = `${filenameBase}${randomString}.${extension}`;
 
-                new Notice(`Uploading ${filename}...`);
-
-                try {
-                    // Upload the image
-                    const uploader = this.getImageUploader();
-                    const imgUrl = await uploader.upload(file, filename);
-
-                    // Insert the image link at the cursor
-                    const cursor = editor.getCursor();
-                    const altText = settings.imageAltText ? filename.replace(/\.[^/.]+$/, "") : "";
-                    const imageLink = `![${altText}](${imgUrl})`;
-                    editor.replaceRange(imageLink, cursor);
-
-                    new Notice(`Uploaded ${filename}`);
-                } catch (e) {
-                    new Notice(`Failed to upload ${filename}: ${e.message || e}`);
-                    console.error(`Failed to upload ${filename}:`, e);
+                // Save to local vault first if enabled (independent of upload)
+                let localPath: string | null = null;
+                if (settings.keepLocalFile) {
+                    localPath = await this.saveFileToVault(file, filename);
                 }
+
+                // Try to upload to R2 if auto-upload is enabled
+                let imageLink: string;
+                const altText = settings.imageAltText ? filename.replace(/\.[^/.]+$/, "") : "";
+
+                if (settings.autoUploadOnPaste) {
+                    new Notice(`Uploading ${filename}...`);
+                    try {
+                        const uploader = this.getImageUploader();
+                        const imgUrl = await uploader.upload(file, filename);
+                        imageLink = `![${altText}](${imgUrl})`;
+                        new Notice(`Uploaded ${filename}`);
+                    } catch (e) {
+                        new Notice(`Failed to upload ${filename}: ${e.message || e}`);
+                        console.error(`Failed to upload ${filename}:`, e);
+
+                        // Fallback to local path if available
+                        if (localPath) {
+                            imageLink = `![[${filename}]]`;
+                        } else {
+                            return; // Can't insert anything
+                        }
+                    }
+                } else {
+                    // No upload, use local path
+                    if (localPath) {
+                        imageLink = `![[${filename}]]`;
+                    } else {
+                        return; // Can't insert anything
+                    }
+                }
+
+                // Insert the image link at the cursor
+                const cursor = editor.getCursor();
+                editor.replaceRange(imageLink, cursor);
             }
         }
     }
@@ -74,5 +96,48 @@ export default class PasteListener {
             result += characters.charAt(Math.floor(Math.random() * characters.length));
         }
         return result;
+    }
+
+    private async saveFileToVault(file: File, filename: string): Promise<string | null> {
+        try {
+            const arrayBuffer = await file.arrayBuffer();
+
+            // Get attachment folder path from vault config
+            // @ts-ignore: config is not defined in vault api, but available
+            const attachmentFolderPath = this.app.vault.config.attachmentFolderPath || '.';
+            const activeFile = this.app.workspace.getActiveFile();
+
+            let targetPath: string;
+            if (attachmentFolderPath.startsWith('./') && activeFile) {
+                // Relative to current file
+                const parentPath = activeFile.parent?.path || '';
+                targetPath = `${parentPath}/${attachmentFolderPath.substring(2)}/${filename}`;
+            } else {
+                // Absolute or root-relative
+                targetPath = `${attachmentFolderPath}/${filename}`;
+            }
+
+            // Normalize path
+            targetPath = normalizePath(targetPath);
+
+            // Create directory if filename contains path separators
+            const lastSlashIndex = targetPath.lastIndexOf('/');
+            if (lastSlashIndex > 0) {
+                const dirPath = targetPath.substring(0, lastSlashIndex);
+                // Check if directory exists, create if not
+                const dirExists = await this.app.vault.adapter.exists(dirPath);
+                if (!dirExists) {
+                    await this.app.vault.adapter.mkdir(dirPath);
+                }
+            }
+
+            // Create the file in the vault
+            await this.app.vault.adapter.writeBinary(targetPath, arrayBuffer);
+
+            return targetPath;
+        } catch (e) {
+            console.error(`Failed to save file to vault: ${filename}`, e);
+            return null;
+        }
     }
 }

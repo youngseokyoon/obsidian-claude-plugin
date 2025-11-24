@@ -31,12 +31,11 @@ export default class ImageTagProcessor {
     private progressModal: UploadProgressModal | null = null;
     private readonly useModal: boolean = true;
 
-    constructor(app: App, settings: PublishSettings, imageUploader: ImageUploader, useModal: boolean = true) {
+    constructor(app: App, settings: PublishSettings, imageUploader: ImageUploader) {
         this.app = app;
         this.adapter = this.app.vault.adapter as FileSystemAdapter;
         this.settings = settings;
         this.imageUploader = imageUploader;
-        this.useModal = true;
     }
 
     public async process(action: string): Promise<void> {
@@ -56,7 +55,6 @@ export default class ImageTagProcessor {
         for (const image of images) {
             if (this.app.vault.getAbstractFileByPath(normalizePath(image.path)) == null) {
                 new Notice(`Can NOT locate ${image.name} with ${image.path}, please check image path or attachment option in plugin setting!`, 10000);
-                console.log(`${normalizePath(image.path)} not exist`);
                 // Update the progress modal with the failure
                 if (this.progressModal) {
                     this.progressModal.updateProgress(image.name, false);

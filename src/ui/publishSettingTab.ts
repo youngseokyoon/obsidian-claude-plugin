@@ -1,25 +1,63 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
 import ObsidianPublish from "../publish";
-import ImageStore from "../imageStore";
 
+/**
+ * Style constants for nested settings display
+ */
+const NESTED_SETTINGS_STYLE = {
+    paddingLeft: '20px',
+    borderLeft: '2px solid var(--background-modifier-border)',
+    marginTop: '10px',
+    marginBottom: '20px'
+} as const;
+
+const SECTION_HEADING_STYLE = 'margin-top: 0; color: var(--text-muted);';
+
+/**
+ * Settings tab for the Cloudflare plugin.
+ * Manages configuration for auto-upload functionality and R2 storage settings.
+ */
 export default class PublishSettingTab extends PluginSettingTab {
     private plugin: ObsidianPublish;
-    private imageStoreDiv: HTMLDivElement;
+    private r2SettingsContainer: HTMLDivElement;
 
     constructor(app: App, plugin: ObsidianPublish) {
         super(app, plugin);
         this.plugin = plugin;
     }
 
-    display(): any {
+    /**
+     * Displays the settings UI
+     */
+    display(): void {
         const { containerEl } = this;
-        containerEl.empty()
+        containerEl.empty();
         containerEl.createEl("h1", { text: "Cloudflare Plugin settings" });
 
-        const imageStoreTypeDiv = containerEl.createDiv();
-        this.imageStoreDiv = containerEl.createDiv();
+        const mainSettingsContainer = containerEl.createDiv();
+        this.r2SettingsContainer = containerEl.createDiv();
 
-        new Setting(imageStoreTypeDiv)
+        this.createAutoUploadToggle(mainSettingsContainer);
+        this.setupR2SettingsContainer();
+        this.createR2Settings(this.r2SettingsContainer);
+        this.updateR2SettingsVisibility();
+        this.createAdditionalSettings(mainSettingsContainer);
+    }
+
+    /**
+     * Called when the settings tab is hidden.
+     * Saves settings and reinitializes the image uploader.
+     */
+    async hide(): Promise<void> {
+        await this.plugin.saveSettings();
+        this.plugin.setupImageUploader();
+    }
+
+    /**
+     * Creates the auto-upload toggle setting
+     */
+    private createAutoUploadToggle(container: HTMLElement): void {
+        new Setting(container)
             .setName("Enable Auto Upload Plugin")
             .setDesc("Automatically upload images when pasting them into the editor.")
             .addToggle(toggle =>
@@ -27,31 +65,111 @@ export default class PublishSettingTab extends PluginSettingTab {
                     .setValue(this.plugin.settings.autoUploadOnPaste)
                     .onChange(value => {
                         this.plugin.settings.autoUploadOnPaste = value;
-                        // Show/hide R2 settings based on toggle
-                        this.imageStoreDiv.style.display = value ? 'block' : 'none';
+                        this.updateR2SettingsVisibility();
                     })
             );
+    }
 
-        // Add visual styling to show R2 settings as nested/dependent
-        this.imageStoreDiv.style.paddingLeft = '20px';
-        this.imageStoreDiv.style.borderLeft = '2px solid var(--background-modifier-border)';
-        this.imageStoreDiv.style.marginTop = '10px';
-        this.imageStoreDiv.style.marginBottom = '20px';
+    /**
+     * Sets up the visual styling for the R2 settings container
+     */
+    private setupR2SettingsContainer(): void {
+        this.r2SettingsContainer.style.paddingLeft = NESTED_SETTINGS_STYLE.paddingLeft;
+        this.r2SettingsContainer.style.borderLeft = NESTED_SETTINGS_STYLE.borderLeft;
+        this.r2SettingsContainer.style.marginTop = NESTED_SETTINGS_STYLE.marginTop;
+        this.r2SettingsContainer.style.marginBottom = NESTED_SETTINGS_STYLE.marginBottom;
 
-        // Add a heading for R2 settings section
-        this.imageStoreDiv.createEl('h3', {
+        this.r2SettingsContainer.createEl('h3', {
             text: 'Cloudflare R2 Configuration',
-            attr: { style: 'margin-top: 0; color: var(--text-muted);' }
+            attr: { style: SECTION_HEADING_STYLE }
         });
+    }
 
-        // R2 settings (only these are nested under the toggle)
-        this.drawR2Setting(this.imageStoreDiv);
+    /**
+     * Updates the visibility of R2 settings based on auto-upload toggle
+     */
+    private updateR2SettingsVisibility(): void {
+        this.r2SettingsContainer.style.display =
+            this.plugin.settings.autoUploadOnPaste ? 'block' : 'none';
+    }
 
-        // Set initial visibility based on current setting
-        this.imageStoreDiv.style.display = this.plugin.settings.autoUploadOnPaste ? 'block' : 'none';
+    /**
+     * Creates all R2 configuration settings
+     */
+    private createR2Settings(container: HTMLElement): void {
+        this.createR2CredentialSettings(container);
+        this.createR2StorageSettings(container);
+    }
 
-        // Other independent settings (always visible, but appear after R2 settings)
-        new Setting(imageStoreTypeDiv)
+    /**
+     * Creates R2 credential settings (access keys and endpoint)
+     */
+    private createR2CredentialSettings(container: HTMLElement): void {
+        new Setting(container)
+            .setName('Cloudflare R2 Access Key ID')
+            .setDesc('Your Cloudflare R2 access key ID')
+            .addText(text => text
+                .setPlaceholder('Enter your access key ID')
+                .setValue(this.plugin.settings.r2Setting?.accessKeyId || '')
+                .onChange(value => this.plugin.settings.r2Setting.accessKeyId = value)
+            );
+
+        new Setting(container)
+            .setName('Cloudflare R2 Secret Access Key')
+            .setDesc('Your Cloudflare R2 secret access key')
+            .addText(text => text
+                .setPlaceholder('Enter your secret access key')
+                .setValue(this.plugin.settings.r2Setting?.secretAccessKey || '')
+                .onChange(value => this.plugin.settings.r2Setting.secretAccessKey = value)
+            );
+
+        new Setting(container)
+            .setName('Cloudflare R2 Endpoint')
+            .setDesc('Your Cloudflare R2 endpoint URL (e.g., https://account-id.r2.cloudflarestorage.com)')
+            .addText(text => text
+                .setPlaceholder('Enter your R2 endpoint')
+                .setValue(this.plugin.settings.r2Setting?.endpoint || '')
+                .onChange(value => this.plugin.settings.r2Setting.endpoint = value)
+            );
+    }
+
+    /**
+     * Creates R2 storage settings (bucket, path, domain)
+     */
+    private createR2StorageSettings(container: HTMLElement): void {
+        new Setting(container)
+            .setName('Cloudflare R2 Bucket Name')
+            .setDesc('Your Cloudflare R2 bucket name')
+            .addText(text => text
+                .setPlaceholder('Enter your bucket name')
+                .setValue(this.plugin.settings.r2Setting?.bucketName || '')
+                .onChange(value => this.plugin.settings.r2Setting.bucketName = value)
+            );
+
+        new Setting(container)
+            .setName("Target Path")
+            .setDesc("The path to store image.\\nSupport {year} {mon} {day} {random} {filename} vars. For example, /{year}/{mon}/{day}/{filename} with uploading pic.jpg, it will store as /2023/06/08/pic.jpg.")
+            .addText(text => text
+                .setPlaceholder("Enter path")
+                .setValue(this.plugin.settings.r2Setting.path)
+                .onChange(value => this.plugin.settings.r2Setting.path = value)
+            );
+
+        new Setting(container)
+            .setName("R2.dev URL, Custom Domain Name")
+            .setDesc("You can use the R2.dev URL such as https://pub-xxxx.r2.dev here, or custom domain. If the custom domain name is example.com, you can use https://example.com/pic.jpg to access pic.img.")
+            .addText(text => text
+                .setPlaceholder("Enter domain name")
+                .setValue(this.plugin.settings.r2Setting.customDomainName)
+                .onChange(value => this.plugin.settings.r2Setting.customDomainName = value)
+            );
+    }
+
+    /**
+     * Creates additional independent settings (alt text, update document, ignore properties)
+     */
+    private createAdditionalSettings(container: HTMLElement): void {
+        new Setting(container)
             .setName("Use image name as Alt Text")
             .setDesc("Whether to use image name as Alt Text with '-' and '_' replaced with space.")
             .addToggle(toggle =>
@@ -60,7 +178,7 @@ export default class PublishSettingTab extends PluginSettingTab {
                     .onChange(value => this.plugin.settings.imageAltText = value)
             );
 
-        new Setting(imageStoreTypeDiv)
+        new Setting(container)
             .setName("Update original document")
             .setDesc("Whether to replace internal link with store link.")
             .addToggle(toggle =>
@@ -69,7 +187,7 @@ export default class PublishSettingTab extends PluginSettingTab {
                     .onChange(value => this.plugin.settings.replaceOriginalDoc = value)
             );
 
-        new Setting(imageStoreTypeDiv)
+        new Setting(container)
             .setName("Ignore note properties")
             .setDesc("Where to ignore note properties when copying to clipboard. This won't affect original note.")
             .addToggle(toggle =>
@@ -77,68 +195,5 @@ export default class PublishSettingTab extends PluginSettingTab {
                     .setValue(this.plugin.settings.ignoreProperties)
                     .onChange(value => this.plugin.settings.ignoreProperties = value)
             );
-    }
-
-    async hide(): Promise<any> {
-        await this.plugin.saveSettings();
-        this.plugin.setupImageUploader();
-    }
-
-    private async drawImageStoreSettings(parentEL: HTMLDivElement) {
-        // Deprecated, using drawR2Setting directly
-    }
-
-    private drawR2Setting(parentEL: HTMLDivElement) {
-        new Setting(parentEL)
-            .setName('Cloudflare R2 Access Key ID')
-            .setDesc('Your Cloudflare R2 access key ID')
-            .addText(text => text
-                .setPlaceholder('Enter your access key ID')
-                .setValue(this.plugin.settings.r2Setting?.accessKeyId || '')
-                .onChange(value => this.plugin.settings.r2Setting.accessKeyId = value
-                ));
-
-        new Setting(parentEL)
-            .setName('Cloudflare R2 Secret Access Key')
-            .setDesc('Your Cloudflare R2 secret access key')
-            .addText(text => text
-                .setPlaceholder('Enter your secret access key')
-                .setValue(this.plugin.settings.r2Setting?.secretAccessKey || '')
-                .onChange(value => this.plugin.settings.r2Setting.secretAccessKey = value));
-
-        new Setting(parentEL)
-            .setName('Cloudflare R2 Endpoint')
-            .setDesc('Your Cloudflare R2 endpoint URL (e.g., https://account-id.r2.cloudflarestorage.com)')
-            .addText(text => text
-                .setPlaceholder('Enter your R2 endpoint')
-                .setValue(this.plugin.settings.r2Setting?.endpoint || '')
-                .onChange(value => this.plugin.settings.r2Setting.endpoint = value));
-
-        new Setting(parentEL)
-            .setName('Cloudflare R2 Bucket Name')
-            .setDesc('Your Cloudflare R2 bucket name')
-            .addText(text => text
-                .setPlaceholder('Enter your bucket name')
-                .setValue(this.plugin.settings.r2Setting?.bucketName || '')
-                .onChange(value => this.plugin.settings.r2Setting.bucketName = value));
-
-        new Setting(parentEL)
-            .setName("Target Path")
-            .setDesc("The path to store image.\nSupport {year} {mon} {day} {random} {filename} vars. For example, /{year}/{mon}/{day}/{filename} with uploading pic.jpg, it will store as /2023/06/08/pic.jpg.")
-            .addText(text =>
-                text
-                    .setPlaceholder("Enter path")
-                    .setValue(this.plugin.settings.r2Setting.path)
-                    .onChange(value => this.plugin.settings.r2Setting.path = value));
-
-        //custom domain
-        new Setting(parentEL)
-            .setName("R2.dev URL, Custom Domain Name")
-            .setDesc("You can use the R2.dev URL such as https://pub-xxxx.r2.dev here, or custom domain. If the custom domain name is example.com, you can use https://example.com/pic.jpg to access pic.img.")
-            .addText(text =>
-                text
-                    .setPlaceholder("Enter domain name")
-                    .setValue(this.plugin.settings.r2Setting.customDomainName)
-                    .onChange(value => this.plugin.settings.r2Setting.customDomainName = value));
     }
 }

@@ -6,7 +6,6 @@ import {
 
 import ImageTagProcessor, { ACTION_PUBLISH } from "./uploader/imageTagProcessor";
 import ImageUploader from "./uploader/imageUploader";
-import ImageStore from "./imageStore";
 import buildUploader from "./uploader/imageUploaderBuilder";
 import PublishSettingTab from "./ui/publishSettingTab";
 import { R2Setting } from "./uploader/r2/r2Uploader";
@@ -74,7 +73,6 @@ export default class ObsidianPublish extends Plugin {
     }
 
     onunload() {
-        // console.log("unloading plugin");
     }
 
     async loadSettings() {
@@ -97,12 +95,10 @@ export default class ObsidianPublish extends Plugin {
     setupImageUploader(): void {
         try {
             this.imageUploader = buildUploader(this.settings);
-            // Create ImageTagProcessor with the user's preference for modal vs status bar
             this.imageTagProcessor = new ImageTagProcessor(
                 this.app,
                 this.settings,
-                this.imageUploader,
-                true, // Always use modal
+                this.imageUploader
             );
         } catch (e) {
             console.log(`Failed to setup image uploader: ${e}`)

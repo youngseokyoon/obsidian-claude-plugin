@@ -14,23 +14,19 @@ export default class PasteListener {
     }
 
     public async handlePaste(evt: ClipboardEvent, editor: Editor): Promise<void> {
-        console.log("[Image Upload Toolkit] Paste event detected");
         const settings = this.getSettings();
         if (!settings.autoUploadOnPaste) {
-            console.log("[Image Upload Toolkit] Auto upload on paste is disabled");
             return;
         }
 
         const files = evt.clipboardData?.files;
         if (!files || files.length === 0) {
-            console.log("[Image Upload Toolkit] No files in clipboard");
             return;
         }
 
         for (let i = 0; i < files.length; i++) {
             const file = files[i];
             if (file.type.startsWith("image/")) {
-                console.log(`[Image Upload Toolkit] Processing image: ${file.name}`);
                 evt.preventDefault();
                 evt.stopPropagation();
 
@@ -43,7 +39,6 @@ export default class PasteListener {
                     const frontmatter = this.app.metadataCache.getFileCache(activeFile)?.frontmatter;
                     if (frontmatter && frontmatter["imageNameKey"]) {
                         filenameBase = `${frontmatter["imageNameKey"]}-`;
-                        console.log(`[Image Upload Toolkit] Using imageNameKey: ${frontmatter["imageNameKey"]}`);
                     }
                 }
 
@@ -57,8 +52,6 @@ export default class PasteListener {
                     const uploader = this.getImageUploader();
                     const imgUrl = await uploader.upload(file, filename);
 
-                    console.log(`[Image Upload Toolkit] Uploaded ${filename} to ${imgUrl}`);
-
                     // Insert the image link at the cursor
                     const cursor = editor.getCursor();
                     const altText = settings.imageAltText ? filename.replace(/\.[^/.]+$/, "") : "";
@@ -68,7 +61,7 @@ export default class PasteListener {
                     new Notice(`Uploaded ${filename}`);
                 } catch (e) {
                     new Notice(`Failed to upload ${filename}: ${e.message || e}`);
-                    console.error(`[Image Upload Toolkit] Failed to upload ${filename}:`, e);
+                    console.error(`Failed to upload ${filename}:`, e);
                 }
             }
         }

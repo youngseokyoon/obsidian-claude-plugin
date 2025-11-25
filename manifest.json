@@ -1,7 +1,7 @@
 {
   "id": "obsidian-cloudflare-plugin",
   "name": "Obsidian cloudflare Plugin",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "minAppVersion": "0.15.0",
   "description": "This plugin uploads images from your clipboard to your own cloudflare bucket and embeds uploaded image to your note",
   "author": "youngseok.yoon",

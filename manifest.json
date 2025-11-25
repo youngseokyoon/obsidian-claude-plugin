@@ -1,9 +1,9 @@
 {
-  "id": "obsidian-cloudflare-plugin",
-  "name": "Obsidian cloudflare Plugin",
+  "id": "cloudflare-r2",
+  "name": "Cloudflare R2 Image Upload",
   "version": "1.0.1",
   "minAppVersion": "0.15.0",
-  "description": "This plugin uploads images from your clipboard to your own cloudflare bucket and embeds uploaded image to your note",
+  "description": "Upload images to Cloudflare R2 with automatic paste, smart sizing, and local fallback.",
   "author": "youngseok.yoon",
   "isDesktopOnly": true
 }

@@ -13,6 +13,18 @@ const NESTED_SETTINGS_STYLE = {
 
 const SECTION_HEADING_STYLE = 'margin-top: 0; color: var(--text-muted);';
 
+// Image sizing configuration
+const IMAGE_WIDTH_PRESETS = [80, 100, 150, 200, 300] as const;
+const IMAGE_PERCENTAGE_PRESETS = [50, 75, 100, 150, 200] as const;
+const IMAGE_WIDTH_DEFAULT = 150;
+const IMAGE_PERCENTAGE_DEFAULT = 100;
+
+const IMAGE_SIZE_MODE_LABELS = {
+    fixed: "Fixed (pixels)",
+    percentage: "Percentage (%)",
+    auto: "Auto (smart sizing)"
+} as const;
+
 /**
  * Settings tab for the Cloudflare plugin.
  * Manages configuration for auto-upload functionality and R2 storage settings.
@@ -178,30 +190,83 @@ export default class PublishSettingTab extends PluginSettingTab {
                     .onChange(value => this.plugin.settings.keepLocalFile = value)
             );
 
-        const imageWidthSetting = new Setting(container)
-            .setName("Image display width")
-            .setDesc(`Current: ${this.plugin.settings.imageWidth}px (Options: 80, 100, 150, 200, 300)`);
+        // Image sizing mode selector
+        new Setting(container)
+            .setName("Image sizing mode")
+            .setDesc("Choose how pasted images should be sized")
+            .addDropdown(dropdown =>
+                dropdown
+                    .addOption("fixed", IMAGE_SIZE_MODE_LABELS.fixed)
+                    .addOption("percentage", IMAGE_SIZE_MODE_LABELS.percentage)
+                    .addOption("auto", IMAGE_SIZE_MODE_LABELS.auto)
+                    .setValue(this.plugin.settings.imageWidthMode)
+                    .onChange(value => {
+                        this.plugin.settings.imageWidthMode = value as "fixed" | "percentage" | "auto";
+                        this.display(); // Refresh to show/hide appropriate slider
+                    })
+            );
 
-        imageWidthSetting.addSlider(slider => {
-            const widths = [80, 100, 150, 200, 300];
-            slider
-                .setLimits(0, 4, 1)
-                .setValue(this.getSliderValueFromWidth(this.plugin.settings.imageWidth))
-                .onChange(value => {
-                    this.plugin.settings.imageWidth = widths[value];
-                    imageWidthSetting.setDesc(`Current: ${widths[value]}px (Options: 80, 100, 150, 200, 300)`);
-                });
-        });
+        // Conditional settings based on mode
+        if (this.plugin.settings.imageWidthMode === "fixed") {
+            const fixedWidthSetting = new Setting(container)
+                .setName("Fixed width")
+                .setDesc(`Current: ${this.plugin.settings.imageWidth}px (Options: ${IMAGE_WIDTH_PRESETS.join(', ')})`);
 
-        imageWidthSetting.addExtraButton(button =>
-            button
-                .setIcon("reset")
-                .setTooltip("Reset to default (150)")
-                .onClick(() => {
-                    this.plugin.settings.imageWidth = 150;
-                    this.display();
-                })
-        );
+            fixedWidthSetting.addSlider(slider => {
+                slider
+                    .setLimits(0, IMAGE_WIDTH_PRESETS.length - 1, 1)
+                    .setValue(this.getSliderValueFromWidth(this.plugin.settings.imageWidth))
+                    .onChange(value => {
+                        this.plugin.settings.imageWidth = IMAGE_WIDTH_PRESETS[value];
+                        fixedWidthSetting.setDesc(`Current: ${IMAGE_WIDTH_PRESETS[value]}px (Options: ${IMAGE_WIDTH_PRESETS.join(', ')})`);
+                    });
+            });
+
+            fixedWidthSetting.addExtraButton(button =>
+                button
+                    .setIcon("reset")
+                    .setTooltip("Reset to default (150px)")
+                    .onClick(() => {
+                        this.plugin.settings.imageWidth = IMAGE_WIDTH_DEFAULT;
+                        this.display();
+                    })
+            );
+        } else if (this.plugin.settings.imageWidthMode === "percentage") {
+            const percentageSetting = new Setting(container)
+                .setName("Image scale")
+                .setDesc(`Current: ${this.plugin.settings.imagePercentage}% (Options: ${IMAGE_PERCENTAGE_PRESETS.join(', ')}%)`);
+
+            percentageSetting.addSlider(slider => {
+                slider
+                    .setLimits(0, IMAGE_PERCENTAGE_PRESETS.length - 1, 1)
+                    .setValue(this.getSliderValueFromPercentage(this.plugin.settings.imagePercentage))
+                    .onChange(value => {
+                        this.plugin.settings.imagePercentage = IMAGE_PERCENTAGE_PRESETS[value];
+                        percentageSetting.setDesc(`Current: ${IMAGE_PERCENTAGE_PRESETS[value]}% (Options: ${IMAGE_PERCENTAGE_PRESETS.join(', ')}%)`);
+                    });
+            });
+
+            percentageSetting.addExtraButton(button =>
+                button
+                    .setIcon("reset")
+                    .setTooltip("Reset to default (100%)")
+                    .onClick(() => {
+                        this.plugin.settings.imagePercentage = IMAGE_PERCENTAGE_DEFAULT;
+                        this.display();
+                    })
+            );
+        } else if (this.plugin.settings.imageWidthMode === "auto") {
+            new Setting(container)
+                .setName("Auto sizing rules")
+                .setDesc(
+                    "Images will be automatically sized based on their dimensions:\n" +
+                    "• Large images (>1200px): Reduced to 600px\n" +
+                    "• Small images (<300px): Enlarged to 200%\n" +
+                    "• Portrait images: Limited to 400px width\n" +
+                    "• Landscape images: Limited to 800px width\n" +
+                    "• Medium images: Original size"
+                );
+        }
 
         new Setting(container)
             .setName("Use image name as Alt Text")
@@ -235,8 +300,17 @@ export default class PublishSettingTab extends PluginSettingTab {
      * Helper method to convert image width to slider value
      */
     private getSliderValueFromWidth(width: number): number {
-        const widths = [80, 100, 150, 200, 300];
-        const index = widths.indexOf(width);
-        return index >= 0 ? index : 2; // Default to 150 (index 2)
+        const index = (IMAGE_WIDTH_PRESETS as readonly number[]).indexOf(width);
+        const defaultIndex = (IMAGE_WIDTH_PRESETS as readonly number[]).indexOf(IMAGE_WIDTH_DEFAULT);
+        return index >= 0 ? index : defaultIndex;
+    }
+
+    /**
+     * Helper method to convert percentage to slider value
+     */
+    private getSliderValueFromPercentage(percentage: number): number {
+        const index = (IMAGE_PERCENTAGE_PRESETS as readonly number[]).indexOf(percentage);
+        const defaultIndex = (IMAGE_PERCENTAGE_PRESETS as readonly number[]).indexOf(IMAGE_PERCENTAGE_DEFAULT);
+        return index >= 0 ? index : defaultIndex;
     }
 }

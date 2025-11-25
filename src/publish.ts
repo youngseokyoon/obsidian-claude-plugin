@@ -17,7 +17,9 @@ export interface PublishSettings {
     ignoreProperties: boolean;
     autoUploadOnPaste: boolean;
     keepLocalFile: boolean;
+    imageWidthMode: "fixed" | "percentage" | "auto";
     imageWidth: number;
+    imagePercentage: number;
     r2Setting: R2Setting;
 }
 
@@ -27,7 +29,9 @@ const DEFAULT_SETTINGS: PublishSettings = {
     ignoreProperties: true,
     autoUploadOnPaste: false,
     keepLocalFile: true,
+    imageWidthMode: "fixed",
     imageWidth: 150,
+    imagePercentage: 100,
     r2Setting: {
         accessKeyId: "",
         secretAccessKey: "",

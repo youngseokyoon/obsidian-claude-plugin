@@ -51,10 +51,21 @@ export default class PasteListener {
                     localPath = await this.saveFileToVault(file, filename);
                 }
 
+                // Calculate width parameter based on sizing mode
+                let widthParam = "";
+                if (settings.imageWidthMode === "fixed") {
+                    widthParam = settings.imageWidth > 0 ? `|${settings.imageWidth}` : "";
+                } else if (settings.imageWidthMode === "percentage") {
+                    widthParam = `|${settings.imagePercentage}%`;
+                } else if (settings.imageWidthMode === "auto") {
+                    // Read image dimensions and calculate optimal size
+                    const dimensions = await this.getImageDimensions(file);
+                    widthParam = this.calculateAutoWidth(dimensions);
+                }
+
                 // Try to upload to R2 if auto-upload is enabled
                 let imageLink: string;
                 const altText = settings.imageAltText ? filename.replace(/\.[^/.]+$/, "") : "";
-                const widthParam = settings.imageWidth > 0 ? `|${settings.imageWidth}` : "";
 
                 if (settings.autoUploadOnPaste) {
                     new Notice(`Uploading ${filename}...`);
@@ -140,5 +151,54 @@ export default class PasteListener {
             console.error(`Failed to save file to vault: ${filename}`, e);
             return null;
         }
+    }
+
+    /**
+     * Get image dimensions from file
+     */
+    private async getImageDimensions(file: File): Promise<{ width: number, height: number }> {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => {
+                resolve({ width: img.width, height: img.height });
+                URL.revokeObjectURL(img.src);
+            };
+            img.onerror = () => {
+                reject(new Error('Failed to load image'));
+                URL.revokeObjectURL(img.src);
+            };
+            img.src = URL.createObjectURL(file);
+        });
+    }
+
+    /**
+     * Calculate optimal width based on image dimensions
+     */
+    private calculateAutoWidth(dimensions: { width: number, height: number }): string {
+        const { width, height } = dimensions;
+        const aspectRatio = width / height;
+
+        // Large screenshots (width > 1200px)
+        if (width > 1200) {
+            return "|600";
+        }
+
+        // Small icons/logos (width < 300px)
+        if (width < 300) {
+            return "|200%";
+        }
+
+        // Tall images (portrait)
+        if (aspectRatio < 0.7) {
+            return "|400";
+        }
+
+        // Wide images (landscape)
+        if (aspectRatio > 1.5) {
+            return "|800";
+        }
+
+        // Medium size - use original
+        return "";
     }
 }

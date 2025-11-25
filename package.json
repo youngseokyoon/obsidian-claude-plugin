@@ -4,17 +4,26 @@
   "description": "This plugin uploads images from your clipboard to your own cloudflare bucket and embeds uploaded image to your note",
   "main": "main.js",
   "scripts": {
-    "dev": "node esbuild.config.mjs",
-    "build": "node esbuild.config.mjs production"
+    "dev": "node scripts/dev.js",
+    "build": "node esbuild.config.mjs production",
+    "format": "prettier --write ."
   },
-  "keywords": [ "cloudflare", "clipboard", "obsidian", "plugin" ],
+  "keywords": [
+    "cloudflare",
+    "clipboard",
+    "obsidian",
+    "plugin"
+  ],
   "author": "youngseok.yoon",
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^24.10.1",
     "builtin-modules": "^3.3.0",
+    "enquirer": "^2.4.1",
     "esbuild": "0.17.3",
     "obsidian": "obsidianmd/obsidian-api",
+    "obsidian-utils": "^0.10.2",
+    "prettier": "^3.6.2",
     "typescript": "^5.9.3"
   },
   "dependencies": {

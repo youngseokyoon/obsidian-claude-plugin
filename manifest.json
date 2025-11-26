@@ -1,7 +1,7 @@
 {
-  "id": "cloudflare-r2",
+  "id": "cloudflare-image-uploader",
   "name": "Cloudflare R2 Image Upload",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "minAppVersion": "0.15.0",
   "description": "Upload images to Cloudflare R2 with automatic paste, smart sizing, and local fallback.",
   "author": "youngseok.yoon",
